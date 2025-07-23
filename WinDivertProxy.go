@@ -1,3 +1,4 @@
+//go:build divert
 // +build divert
 
 package main
@@ -113,6 +114,10 @@ func CaptureWithDivertedPacket(ctx context.Context, session *CaptureSession, cli
 					FromServer: proxyWriter.ServerAddr.String() == pktSrcAddr.String(),
 				},
 			}
+
+			// Write captured packet to PCAP
+			session.WritePacketToPCAP(pktSrcAddr, pktDstAddr, udpPayload)
+
 			select {
 			case packetChan <- ProxiedPacket{Layers: layers, Payload: udpPayload}:
 			case <-ctx.Done():
@@ -174,6 +179,10 @@ func CaptureFromDivert(ctx context.Context, session *CaptureSession) error {
 				fmt.Printf("parse udp fail: %s\n", err.Error())
 				return
 			}
+
+			// Write captured packet to PCAP
+			session.WritePacketToPCAP(pktSrcAddr, pktDstAddr, udpPayload)
+
 			err = CaptureWithDivertedPacket(ctx, session, pktSrcAddr, pktDstAddr, udpPayload, ifIdx, subIfIdx)
 			if err != nil {
 				fmt.Printf("open divert connection fail: %s\n", err.Error())

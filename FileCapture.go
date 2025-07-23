@@ -83,6 +83,11 @@ func CaptureFromSource(ctx context.Context, convs Conversations, packetSource *g
 			}
 			fromClient := AddressEq(src, conv.Client)
 
+			// Write to PCAP if this is a CaptureSession
+			if session, ok := convs.(*CaptureSession); ok {
+				session.WritePacketToPCAP(src, dest, payload)
+			}
+
 			layers := NewLayers(src, dest, fromClient)
 			var reader PacketProvider
 			if fromClient {

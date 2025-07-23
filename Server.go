@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/Gskartwii/roblox-dissector/datamodel"
@@ -297,6 +298,7 @@ func NewServerStartWidget(callback func(string, string, uint16)) error {
 func CaptureFromServer(ctx context.Context, session *CaptureSession, server *peer.CustomServer) {
 	server.ClientEmitter.On("client", func(e *emitter.Event) {
 		client := e.Args[0].(*peer.ServerClient)
+
 		session.AddConversation(&Conversation{
 			Client:       client.Address,
 			Server:       client.Server.Address,
@@ -304,5 +306,13 @@ func CaptureFromServer(ctx context.Context, session *CaptureSession, server *pee
 			ServerReader: client.DefaultPacketWriter,
 			Context:      client.Context,
 		})
+	}, emitter.Void)
+
+	// Listen for all packets (both client-to-server and server-to-client) for PCAP capture
+	server.PacketEmitter.On("packet", func(e *emitter.Event) {
+		srcAddr := e.Args[0].(*net.UDPAddr)
+		dstAddr := e.Args[1].(*net.UDPAddr)
+		payload := e.Args[2].([]byte)
+		session.WritePacketToPCAP(srcAddr, dstAddr, payload)
 	}, emitter.Void)
 }

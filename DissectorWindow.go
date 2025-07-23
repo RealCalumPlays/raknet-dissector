@@ -229,6 +229,15 @@ func (win *DissectorWindow) CaptureFromPcapDevice(name string) {
 	}
 	session.ForgetAcks = win.forgetAcksItem.GetActive()
 
+	// Initialize PCAP writing for live captured packets
+	pcapFilename := fmt.Sprintf("capture_%s_%d.pcap", name, time.Now().Unix())
+	err = session.InitPCAPWriter(pcapFilename)
+	if err != nil {
+		println("Warning: Failed to initialize PCAP writer:", err.Error())
+	} else {
+		println("Writing captured packets to:", pcapFilename)
+	}
+
 	go func() {
 		err = CaptureFromHandle(context, session, handle)
 		if err != nil {
@@ -256,6 +265,17 @@ func (win *DissectorWindow) CaptureFromServer(port uint16, schema *peer.NetworkS
 	if err != nil {
 		return err
 	}
+	session.ForgetAcks = win.forgetAcksItem.GetActive()
+
+	// Initialize PCAP writing for server captured packets
+	pcapFilename := fmt.Sprintf("server_capture_port_%d_%d.pcap", port, time.Now().Unix())
+	err = session.InitPCAPWriter(pcapFilename)
+	if err != nil {
+		println("Warning: Failed to initialize PCAP writer:", err.Error())
+	} else {
+		println("Writing captured packets to:", pcapFilename)
+	}
+
 	server, err := peer.NewCustomServer(ctx, port, schema, dm, instanceDictionary)
 	if err != nil {
 		return err
@@ -318,6 +338,15 @@ func (win *DissectorWindow) CaptureFromFile(filename string) {
 		return
 	}
 	session.ForgetAcks = win.forgetAcksItem.GetActive()
+
+	// Initialize PCAP writing for captured packets
+	pcapFilename := filename + "_captured.pcap"
+	err = session.InitPCAPWriter(pcapFilename)
+	if err != nil {
+		println("Warning: Failed to initialize PCAP writer:", err.Error())
+	} else {
+		println("Writing captured packets to:", pcapFilename)
+	}
 
 	countPackets := 0.0
 	frac := 0.0
@@ -553,6 +582,17 @@ func NewDissectorWindow() (*gtk.Window, error) {
 		if err != nil {
 			dwin.ShowCaptureError(err, "Starting WinDivert proxy")
 		}
+		session.ForgetAcks = dwin.forgetAcksItem.GetActive()
+
+		// Initialize PCAP writing for WinDivert captured packets
+		pcapFilename := fmt.Sprintf("divert_capture_%d.pcap", time.Now().Unix())
+		err = session.InitPCAPWriter(pcapFilename)
+		if err != nil {
+			println("Warning: Failed to initialize PCAP writer:", err.Error())
+		} else {
+			println("Writing captured packets to:", pcapFilename)
+		}
+
 		err = CaptureFromDivert(ctx, session)
 		if err != nil {
 			dwin.ShowCaptureError(err, "Starting WinDivert proxy")

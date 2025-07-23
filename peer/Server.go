@@ -37,6 +37,7 @@ type CustomServer struct {
 	Connection         *net.UDPConn
 	Clients            map[string]*ServerClient
 	ClientEmitter      *emitter.Emitter
+	PacketEmitter      *emitter.Emitter // For PCAP capture
 	Address            *net.UDPAddr
 	GUID               uint64
 	Schema             *NetworkSchema
@@ -61,10 +62,14 @@ func (client *ServerClient) ReadPacket(buf []byte) {
 
 func (client *ServerClient) createWriter() {
 	client.Output.On("udp", func(e *emitter.Event) {
-		num, err := client.Connection.WriteToUDP(e.Args[0].([]byte), client.Address)
+		payload := e.Args[0].([]byte)
+		num, err := client.Connection.WriteToUDP(payload, client.Address)
 		if err != nil {
 			fmt.Printf("Wrote %d bytes, err: %s\n", num, err.Error())
 		}
+
+		// Emit packet for PCAP capture (server-to-client)
+		<-client.Server.PacketEmitter.Emit("packet", client.Server.Address, client.Address, payload)
 	}, emitter.Void)
 	client.DefaultPacketWriter.LayerEmitter.On("*", func(e *emitter.Event) {
 		e.Args[0].(*PacketLayers).Root = RootLayer{
@@ -153,6 +158,10 @@ func (myServer *CustomServer) Start() error {
 
 			<-myServer.ClientEmitter.Emit("client", thisClient)
 		}
+
+		// Emit packet for PCAP capture (client-to-server)
+		<-myServer.PacketEmitter.Emit("packet", client, myServer.Address, buf[:n])
+
 		thisClient.ReadPacket(buf[:n])
 	}
 }
@@ -166,7 +175,11 @@ func (myServer *CustomServer) stop() {
 
 // NewCustomServer initializes a CustomServer
 func NewCustomServer(ctx context.Context, port uint16, schema *NetworkSchema, dataModel *datamodel.DataModel, dict *datamodel.InstanceDictionary) (*CustomServer, error) {
-	server := &CustomServer{Clients: make(map[string]*ServerClient)}
+	server := &CustomServer{
+		Clients:       make(map[string]*ServerClient),
+		ClientEmitter: emitter.New(0),
+		PacketEmitter: emitter.New(0),
+	}
 
 	var err error
 	server.Address, err = net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
@@ -183,7 +196,6 @@ func NewCustomServer(ctx context.Context, port uint16, schema *NetworkSchema, da
 	server.InstanceDictionary = dict
 	server.Context.InstanceTopScope = server.InstanceDictionary.Scope
 	server.Context.ServerPeerID = server.InstanceDictionary.PeerID
-	server.ClientEmitter = emitter.New(0)
 
 	return server, nil
 }
