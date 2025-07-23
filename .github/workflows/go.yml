@@ -67,7 +67,7 @@ jobs:
       run: cp ~/windivert/WinDivert-2.2.0-A/x64/WinDivert{64.sys,.dll} /c/artifacts
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: windows-binary
         path: C:\artifacts
